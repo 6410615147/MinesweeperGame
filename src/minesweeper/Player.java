@@ -12,7 +12,7 @@ public class Player {
     private static Socket socket;
     private static BufferedReader in;
     private static PrintWriter out;
-    private static final int BOARD_SIZE = 10;
+    private static final int BOARD_SIZE = 5;
     private static JFrame frame = new JFrame("Minesweeper");
     private static JButton[][] buttons = new JButton[BOARD_SIZE][BOARD_SIZE];
     private static boolean gameActive = true;
@@ -62,6 +62,8 @@ public class Player {
         int y = Integer.parseInt(response.split(",")[2]);
         buttons[x][y].setText(text);
         buttons[x][y].setEnabled(false);
+
+        checkWinCondition();
     }
 
     private static void updateTurn(String response) {
@@ -76,6 +78,26 @@ public class Player {
         buttons[x][y].setBackground(Color.RED);
         JOptionPane.showMessageDialog(frame, "Game Over Player " + (playerTurn+1) + " hit the mine!");
         gameActive = false;
+    }
+
+    private static void winGame(String response) {
+        int winPlayer = Integer.parseInt(response.split(" ")[1]);
+        JOptionPane.showMessageDialog(frame, "Player " + (winPlayer + 1) + " wins the game!");
+        gameActive = false;
+    }
+
+    private static void checkWinCondition() {
+        boolean allDisabled = true;
+        for (int i = 0; i < BOARD_SIZE; i++) {
+            for (int j = 0; j < BOARD_SIZE; j++) {
+                if (buttons[i][j].isEnabled()) {
+                    allDisabled = false;
+                }
+            }
+        }
+        if (allDisabled) {
+            out.println("Win," + playerIndex);
+        }
     }
 
     private static class ButtonListener extends MouseAdapter {
@@ -109,6 +131,8 @@ public class Player {
                 endGame(response);
             } else if (response.startsWith("Player")) {
                 updateTurn(response);
+            } else if (response.startsWith("Win")) {
+                winGame(response);
             } else {
                 updateBoard(response);
             }

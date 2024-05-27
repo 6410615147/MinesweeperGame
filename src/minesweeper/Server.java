@@ -9,8 +9,8 @@ public class Server {
     private static final int PORT = 12345;
     private static ServerSocket server;
     private static List<PlayerThread> players = new ArrayList<>();
-    private static final int BOARD_SIZE = 10;
-    private static final int MINES = 10;
+    private static final int BOARD_SIZE = 5;
+    private static final int MINES = 5;
     private static int[][] board = new int[BOARD_SIZE][BOARD_SIZE];
     private static boolean[][] mines = new boolean[BOARD_SIZE][BOARD_SIZE];
     private static int playerTurn = 0;
@@ -84,14 +84,19 @@ public class Server {
                     String input = in.readLine();
                     if (input != null && playerIndex == playerTurn) {
                         String[] parts = input.split(",");
-                        String action = parts[0];
-                        int x = Integer.parseInt(parts[1]);
-                        int y = Integer.parseInt(parts[2]);
-                        switchTurn();
-                        if (action.equals("click")) {
-                            handleClicked(x, y);   
+                        if (input.startsWith("Win")) {
+                            String playerWin = parts[1];
+                            handleWin(playerWin);
                         } else {
-                            handlePinged(x, y);
+                            String action = parts[0];
+                            int x = Integer.parseInt(parts[1]);
+                            int y = Integer.parseInt(parts[2]);
+                            switchTurn();
+                            if (action.equals("click")) {
+                                handleClicked(x, y);   
+                            } else {
+                                handlePinged(x, y);
+                            }
                         }
                     }
                 }
@@ -124,6 +129,12 @@ public class Server {
             for (PlayerThread player : players) {
                 player.out.println("P," + x + "," + y);
                 player.out.println("Player " + playerTurn + " Turn");
+            }
+        }
+        
+        private void handleWin(String playerWin) {
+            for (PlayerThread player : players) {
+                player.out.println("Win " + playerWin);
             }
         }
 
