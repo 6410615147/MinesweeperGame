@@ -8,12 +8,13 @@ import java.util.*;
 public class Server {
     private static final int PORT = 12345;
     private static ServerSocket server;
-    private static List<PlayerThread> players = new ArrayList<>();
+    private static PlayerThread[] players = {null, null};
     private static final int BOARD_SIZE = 5;
     private static final int MINES = 5;
     private static int[][] board = new int[BOARD_SIZE][BOARD_SIZE];
     private static boolean[][] mines = new boolean[BOARD_SIZE][BOARD_SIZE];
     private static int playerTurn = 0;
+    private static int remainMine = MINES;
  
     public Server(){
         try {
@@ -23,17 +24,21 @@ public class Server {
             createBoard();
  
             try {
-                while (players.size() < 2) {
+                while (true) {
                     Socket player = server.accept();
-                    PlayerThread playerThread = new PlayerThread(player, players.size());
+                    PlayerThread playerThread;
 
-                    players.add(playerThread);
-                    System.out.println("Player " + players.size() + " accepted");
-
-                    playerThread.start();
+                    for (int i = 0; i < players.length; i++) {
+                        if (players[i] == null) {
+                            playerThread = new PlayerThread(player, i);
+                            System.out.println("Player " + (i+1) + " accepted");
+                            players[i] = playerThread;
+                            playerThread.start();
+                            break;
+                        }
+                    }
                 }
             } finally {
-                System.out.println("Closing connection");
                 server.close();
             }
         }
@@ -63,6 +68,14 @@ public class Server {
         }
     }
 
+    public static void resetBoard() {
+        board = new int[BOARD_SIZE][BOARD_SIZE];
+        mines = new boolean[BOARD_SIZE][BOARD_SIZE];
+        playerTurn = 0;
+        remainMine = MINES;
+        createBoard();
+    }
+
     private static class PlayerThread extends Thread {
         private Socket player;
         private int playerIndex;
@@ -82,12 +95,14 @@ public class Server {
                 
                 while (true) {
                     String input = in.readLine();
-                    if (input != null && playerIndex == playerTurn) {
-                        String[] parts = input.split(",");
-                        if (input.startsWith("Win")) {
-                            String playerWin = parts[1];
-                            handleWin(playerWin);
+
+                    if (input.equals("restart")) {
+                        handleRestart();
+                    } else if (input != null && playerIndex == playerTurn) {
+                        if (input.equals("win")) {
+                            handleWin();
                         } else {
+                            String[] parts = input.split(",");
                             String action = parts[0];
                             int x = Integer.parseInt(parts[1]);
                             int y = Integer.parseInt(parts[2]);
@@ -103,6 +118,10 @@ public class Server {
             } catch (IOException e) {
                 System.out.println(e);
             } finally {
+                players[playerIndex] = null;
+                System.out.println("Player " + (playerIndex + 1) + " disconnected");
+                handleRestart();
+                
                 try {
                     player.close();
                 } catch (IOException e) {
@@ -114,27 +133,52 @@ public class Server {
         private void handleClicked(int x, int y) {
             if (mines[x][y]) {
                 for (PlayerThread player : players) {
-                    player.out.println("Game Over," + x + "," + y);
+                    if (player != null) {
+                        player.out.println("Hit Mine," + x + "," + y);
+                    }
                 }
             } else {
-                int mineCount = board[x][y];
+                int mineAround = board[x][y];
                 for (PlayerThread player : players) {
-                    player.out.println(mineCount + "," + x + "," + y);
-                    player.out.println("Player " + playerTurn + " Turn");
+                    if (player != null) {
+                        player.out.println(mineAround + "," + x + "," + y);
+                        player.out.println("Player " + playerTurn + " Turn");
+                    }
                 }
             }
         }
 
         private void handlePinged(int x, int y) {
-            for (PlayerThread player : players) {
-                player.out.println("P," + x + "," + y);
-                player.out.println("Player " + playerTurn + " Turn");
+            if (!mines[x][y]) {
+                for (PlayerThread player : players) {
+                    if (player != null) {
+                        player.out.println("Not Mine," + x + "," + y);
+                    }
+                }
+            } else {
+                remainMine--;
+                for (PlayerThread player : players) {
+                    if (player != null) {
+                        player.out.println("P," + x + "," + y + "," + remainMine);
+                        player.out.println("Player " + playerTurn + " Turn");
+                    }
+                }
             }
         }
         
-        private void handleWin(String playerWin) {
+        private void handleWin() {
             for (PlayerThread player : players) {
-                player.out.println("Win " + playerWin);
+                if (player != null) {
+                    player.out.println("Win");
+                }
+            }
+        }
+        private void handleRestart() {
+            resetBoard();
+            for (PlayerThread player : players) {
+                if (player != null) {
+                    player.out.println("Restart");
+                }
             }
         }
 
